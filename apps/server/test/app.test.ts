@@ -118,4 +118,35 @@ describe("LinkSync API", () => {
       assert.equal(response.statusCode, 400);
     }
   });
+
+  it("syncs article metadata with revisions and metadata-free tombstones", async () => {
+    const android = await pair("android", "Library phone");
+    const chrome = await pair("chrome", "Library browser");
+    const body = { url: "https://example.com/article", title: "A story", list: "Read later", snippet: "A passage", progress: 0.4, savedAt: Date.now() };
+    const saved = await app.inject({ method: "PUT", url: "/api/v1/articles/story-1", headers: { authorization: `Bearer ${android.token}` }, payload: body });
+    assert.equal(saved.statusCode, 200);
+    const listed = await app.inject({ method: "GET", url: "/api/v1/articles", headers: { authorization: `Bearer ${chrome.token}` } });
+    assert.deepEqual(listed.json<{ articles: unknown[] }>().articles[0], { id: "story-1", ...body, revision: 1, deleted: false });
+    const removed = await app.inject({ method: "DELETE", url: "/api/v1/articles/story-1", headers: { authorization: `Bearer ${chrome.token}` } });
+    assert.equal(removed.statusCode, 200);
+    assert.deepEqual(removed.json(), { id: "story-1", revision: 2, deleted: true });
+    const tombstone = await app.inject({ method: "GET", url: "/api/v1/articles", headers: { authorization: `Bearer ${android.token}` } });
+    assert.deepEqual(tombstone.json<{ articles: unknown[] }>().articles.at(-1), { id: "story-1", revision: 2, deleted: true });
+  });
+
+  it("removes a device while preserving its delivery history", async () => {
+    const android = await pair("android", "Removable phone");
+    const chrome = await pair("chrome", "Removable browser");
+    const created = await app.inject({ method: "POST", url: "/api/v1/deliveries", headers: { authorization: `Bearer ${android.token}` }, payload: { url: "https://example.com/remove", targetDeviceId: chrome.deviceId, idempotencyKey: "remove-1" } });
+    assert.equal(created.statusCode, 201);
+    const removed = await app.inject({ method: "DELETE", url: `/api/v1/admin/devices/${chrome.deviceId}/remove`, headers: { cookie: adminCookie } });
+    assert.equal(removed.statusCode, 204);
+    const credential = await app.inject({ method: "GET", url: "/api/v1/version", headers: { authorization: `Bearer ${chrome.token}` } });
+    assert.equal(credential.statusCode, 401);
+    const history = await app.inject({ method: "GET", url: "/api/v1/history", headers: { authorization: `Bearer ${android.token}` } });
+    assert.equal(history.statusCode, 200);
+    assert.equal(history.json<Array<{ id: string }>>().some((item) => item.id === created.json<{ id: string }>().id), true);
+    const repeated = await app.inject({ method: "DELETE", url: `/api/v1/admin/devices/${chrome.deviceId}/remove`, headers: { cookie: adminCookie } });
+    assert.equal(repeated.statusCode, 404);
+  });
 });

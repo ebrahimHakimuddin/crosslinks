@@ -12,6 +12,8 @@ export interface Config {
   deliveryTtlMs: number;
   historyTtlMs: number;
   pairingTtlMs: number;
+  /** Reverse proxies allowed to provide the left-most untrusted X-Forwarded-For address. */
+  trustedProxyCidrs?: string[];
 }
 
 function normalizedUrl(value: string, name: string): string {
@@ -31,6 +33,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const lanUrl = env.LINKSYNC_LAN_URL
     ? normalizedUrl(env.LINKSYNC_LAN_URL, "LINKSYNC_LAN_URL")
     : undefined;
+  const trustedProxyCidrs = (env.LINKSYNC_TRUSTED_PROXY_CIDRS ?? "")
+    .split(",").map((value) => value.trim()).filter(Boolean);
 
   return {
     host: env.LINKSYNC_HOST ?? "127.0.0.1",
@@ -42,6 +46,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     secureCookies: publicUrl.startsWith("https://"),
     deliveryTtlMs: 7 * 24 * 60 * 60 * 1_000,
     historyTtlMs: 30 * 24 * 60 * 60 * 1_000,
-    pairingTtlMs: 5 * 60 * 1_000
+    pairingTtlMs: 5 * 60 * 1_000,
+    trustedProxyCidrs
   };
 }

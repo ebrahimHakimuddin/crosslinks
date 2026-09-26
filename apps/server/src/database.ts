@@ -11,6 +11,7 @@ export interface DeviceRow {
   created_at: number;
   last_seen_at: number | null;
   revoked_at: number | null;
+  removed_at?: number | null;
 }
 
 export interface DeliveryRow {
@@ -68,7 +69,8 @@ export class LinkSyncDatabase {
         auto_open INTEGER NOT NULL DEFAULT 0 CHECK (auto_open IN (0, 1)),
         created_at INTEGER NOT NULL,
         last_seen_at INTEGER,
-        revoked_at INTEGER
+        revoked_at INTEGER,
+        removed_at INTEGER
       );
       CREATE INDEX IF NOT EXISTS devices_token_hash_idx ON devices(token_hash);
       CREATE TABLE IF NOT EXISTS deliveries (
@@ -86,11 +88,57 @@ export class LinkSyncDatabase {
       );
       CREATE INDEX IF NOT EXISTS deliveries_target_status_idx
         ON deliveries(target_device_id, status, created_at);
+      CREATE TABLE IF NOT EXISTS delivery_receipts (
+        source_device_id TEXT NOT NULL REFERENCES devices(id),
+        idempotency_key TEXT NOT NULL,
+        delivery_id TEXT NOT NULL,
+        url TEXT,
+        target_device_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('queued', 'delivered', 'expired', 'failed')),
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        delivered_at INTEGER,
+        failure_reason TEXT,
+        PRIMARY KEY(source_device_id, idempotency_key)
+      );
+      CREATE INDEX IF NOT EXISTS delivery_receipts_created_idx ON delivery_receipts(created_at);
+      CREATE TABLE IF NOT EXISTS articles (
+        id TEXT PRIMARY KEY,
+        url TEXT,
+        title TEXT,
+        list_name TEXT,
+        snippet TEXT,
+        progress REAL,
+        saved_at INTEGER,
+        read_at INTEGER,
+        revision INTEGER NOT NULL,
+        deleted INTEGER NOT NULL CHECK (deleted IN (0, 1))
+      );
+      CREATE INDEX IF NOT EXISTS articles_revision_idx ON articles(revision);
+      INSERT OR IGNORE INTO metadata(key, value) VALUES ('article_revision', '0');
     `);
+    this.raw.exec(`
+      INSERT OR IGNORE INTO delivery_receipts(source_device_id, idempotency_key, delivery_id, url, target_device_id, status, created_at, expires_at, delivered_at, failure_reason)
+      SELECT source_device_id, idempotency_key, id, url, target_device_id, status, created_at, expires_at, delivered_at, failure_reason FROM deliveries;
+      UPDATE delivery_receipts
+      SET delivery_id = (SELECT d.id FROM deliveries d WHERE d.source_device_id = delivery_receipts.source_device_id AND d.idempotency_key = delivery_receipts.idempotency_key),
+          target_device_id = (SELECT d.target_device_id FROM deliveries d WHERE d.id = delivery_receipts.delivery_id),
+          status = (SELECT d.status FROM deliveries d WHERE d.id = delivery_receipts.delivery_id),
+          url = (SELECT d.url FROM deliveries d WHERE d.id = delivery_receipts.delivery_id),
+          created_at = (SELECT d.created_at FROM deliveries d WHERE d.id = delivery_receipts.delivery_id),
+          expires_at = (SELECT d.expires_at FROM deliveries d WHERE d.id = delivery_receipts.delivery_id),
+          delivered_at = (SELECT d.delivered_at FROM deliveries d WHERE d.id = delivery_receipts.delivery_id),
+          failure_reason = (SELECT d.failure_reason FROM deliveries d WHERE d.id = delivery_receipts.delivery_id)
+      WHERE delivery_id IN (SELECT id FROM deliveries);
+    `);
+    // Additive migration for databases created before device removal existed.
+    const columns = this.raw.prepare("PRAGMA table_info(devices)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "removed_at")) {
+      this.raw.exec("ALTER TABLE devices ADD COLUMN removed_at INTEGER");
+    }
   }
 
   close(): void {
     this.raw.close();
   }
 }
-
