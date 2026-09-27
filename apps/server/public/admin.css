@@ -54,6 +54,7 @@ button:disabled { opacity: .5; cursor: progress; }
 .list { margin-top: 12px; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
 .row:first-child { border-top: 0; }
+.device-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .primary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .meta { font-size: 13px; }
 .badge { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700; text-transform: capitalize; }
@@ -62,4 +63,4 @@ button:disabled { opacity: .5; cursor: progress; }
 #status.error { color: var(--danger); }
 #logout { margin-top: 4px; }
 [hidden] { display: none !important; }
-@media (max-width: 560px) { main { margin-top: 24px; } .pairing { align-items: flex-start; flex-direction: column; } .actions { flex-direction: column; } }
+@media (max-width: 560px) { main { margin-top: 24px; } .pairing { align-items: flex-start; flex-direction: column; } .actions { flex-direction: column; } .device-actions { justify-content: flex-start; } }

@@ -47,15 +47,31 @@ async function refreshDashboard() {
     const meta = document.createElement("div"); meta.className = "meta";
     meta.textContent = device.revoked_at ? `Revoked ${time(device.revoked_at)}` : `Last seen ${time(device.last_seen_at)}`;
     copy.append(name, meta); row.append(copy);
+    const deviceActions = document.createElement("div"); deviceActions.className = "device-actions";
+    const setPending = (pending) => { for (const action of deviceActions.querySelectorAll("button")) action.disabled = pending; };
     if (!device.revoked_at) {
       const revoke = document.createElement("button"); revoke.className = "quiet danger"; revoke.textContent = "Revoke";
       revoke.addEventListener("click", async () => {
         if (!confirm(`Revoke ${device.name}?`)) return;
-        await json(`/api/v1/admin/devices/${encodeURIComponent(device.id)}`, { method: "DELETE" });
-        await refreshDashboard();
+        setPending(true);
+        try {
+          await json(`/api/v1/admin/devices/${encodeURIComponent(device.id)}`, { method: "DELETE" });
+          await refreshDashboard();
+        } catch (error) { setPending(false); setStatus(error.message, true); }
       });
-      row.append(revoke);
+      deviceActions.append(revoke);
     }
+    const remove = document.createElement("button"); remove.className = "quiet danger"; remove.textContent = "Remove";
+    remove.title = "Disconnect and remove this device from the list; delivery history is retained";
+    remove.addEventListener("click", async () => {
+      if (!confirm(`Remove ${device.name}? It will be disconnected and disappear from the device list. Delivery history remains.`)) return;
+      setPending(true);
+      try {
+        await json(`/api/v1/admin/devices/${encodeURIComponent(device.id)}/remove`, { method: "DELETE" });
+        await refreshDashboard();
+      } catch (error) { setPending(false); setStatus(error.message, true); }
+    });
+    deviceActions.append(remove); row.append(deviceActions);
     deviceList.append(row);
   }
 
