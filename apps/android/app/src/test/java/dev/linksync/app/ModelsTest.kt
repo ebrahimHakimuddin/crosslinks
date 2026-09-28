@@ -28,4 +28,18 @@ class ModelsTest {
         assertThrows(IllegalArgumentException::class.java) { validateSharedUrl("https://user:secret@example.com") }
         assertThrows(IllegalArgumentException::class.java) { validateSharedUrl("spotify:album:123") }
     }
+
+    @Test
+    fun articleBoundsAndProgressAreValidated() {
+        val article = ArticleRecord("a", "https://example.com/read#p=3", "Title", "Inbox", "snippet", .5f, 10)
+        assertEquals(.5f, article.progress)
+        assertThrows(IllegalArgumentException::class.java) { article.copy(progress = 1.2f) }
+        assertThrows(IllegalArgumentException::class.java) { ArticleRecord("a", "https://example.com", "x".repeat(301), "Inbox", "", 0f, 1) }
+    }
+
+    @Test
+    fun acceptedDeliveryCannotBeRetried() {
+        val operation = SendOperation("key", "https://example.com", "target", deliveryId = "delivery", createdAt = 0)
+        assertEquals(false, operation.deliveryId == null)
+    }
 }

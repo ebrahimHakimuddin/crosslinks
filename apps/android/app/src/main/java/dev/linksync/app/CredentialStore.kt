@@ -39,6 +39,9 @@ class CredentialStore(context: Context) {
 
     fun clear() = preferences.edit().clear().apply()
 
+    /** Identity source used by background coordinators to invalidate in-flight work. */
+    fun currentIdentity(): Credentials? = load()
+
     var lastTargetId: String?
         get() = preferences.getString(LAST_TARGET, null)
         set(value) { preferences.edit().putString(LAST_TARGET, value).apply() }

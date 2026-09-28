@@ -25,6 +25,67 @@ data class HistoryItem(
     val createdAt: Long,
 )
 
+data class DeliveryStatus(
+    val id: String,
+    val url: String,
+    val status: String,
+    val createdAt: Long,
+    val deliveredAt: Long? = null,
+    val error: String? = null,
+)
+
+data class ArticleRecord(
+    val id: String,
+    val url: String,
+    val title: String,
+    val list: String,
+    val snippet: String,
+    val progress: Float,
+    val savedAt: Long,
+    val readAt: Long? = null,
+    val revision: Long = 0,
+    val deleted: Boolean = false,
+) {
+    init {
+        require(id.length in 1..128)
+        validateSharedUrl(url)
+        require(title.length <= 300 && list.length <= 60 && snippet.length <= 500)
+        require(progress.isFinite() && progress in 0f..1f)
+        require(savedAt >= 0 && (readAt == null || readAt >= 0))
+    }
+}
+
+data class ArticleTombstone(val id: String, val revision: Long, val deleted: Boolean = true)
+
+data class PendingArticleMutation(
+    val article: ArticleRecord?, val id: String, val generation: Long, val deleted: Boolean,
+    val scope: String = "",
+)
+
+data class SendOperationIdentity(val key: String, val scope: String)
+
+data class SendOperation(
+    val key: String,
+    val url: String,
+    val targetDeviceId: String,
+    val deliveryId: String? = null,
+    val state: String = "pending",
+    val createdAt: Long = System.currentTimeMillis(),
+    val scope: String = "",
+)
+
+data class RemoteArticle(val article: ArticleRecord? = null, val id: String, val revision: Long, val deleted: Boolean)
+
+enum class DeliveryState { QUEUED, DELIVERED, FAILED, EXPIRED, UNKNOWN }
+
+fun DeliveryStatus.state(): DeliveryState = when (status.lowercase()) {
+    "queued", "pending", "sent" -> DeliveryState.QUEUED
+    "delivered", "opened" -> DeliveryState.DELIVERED
+    "failed", "error" -> DeliveryState.FAILED
+    "expired" -> DeliveryState.EXPIRED
+    else -> DeliveryState.UNKNOWN
+}
+
 data class ReleaseVersions(
     val server: String,
     val android: String,
