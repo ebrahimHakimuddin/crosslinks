@@ -5,6 +5,9 @@ export interface ExtensionSettings {
   deviceName: string;
   autoOpen: boolean;
   paused: boolean;
+  sharedSync?: boolean;
+  /** Monotonically changes whenever sync consent or account scope changes. */
+  consentEpoch?: number;
 }
 
 export interface Delivery {
@@ -26,12 +29,15 @@ export interface DeliveryState {
   phase: "opening" | "handled";
   url: string;
   at: number;
+  outcome?: "delivered" | "failed";
+  reason?: string;
 }
 
 export const SETTINGS_KEY = "settings";
 export const ACTIVITY_KEY = "activity";
 export const DELIVERY_STATES_KEY = "deliveryStates";
 export const CONNECTION_KEY = "connection";
+export const LIBRARY_SYNC_KEY = "librarySync";
 
 export type ConnectionStatus = {
   state: "connecting" | "online" | "offline";
@@ -65,10 +71,23 @@ export async function getSettings(): Promise<ExtensionSettings | undefined> {
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const settings = await getSettings();
   if (!settings) throw new Error("LinkSync is not paired");
+  const response = await apiFetchWithSettings(settings, path, init);
+  if (!(await settingsMatch(settings))) throw new Error("Pairing settings changed; response was discarded.");
+  return response;
+}
+
+export type ApiSettingsSnapshot = ExtensionSettings;
+
+export async function apiFetchWithSettings(settings: ApiSettingsSnapshot, path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${settings.token}`);
   if (init.body) headers.set("Content-Type", "application/json");
   return fetch(new URL(path, settings.serverUrl), { ...init, headers });
+}
+
+export async function settingsMatch(snapshot: ApiSettingsSnapshot): Promise<boolean> {
+  const current = await getSettings();
+  return Boolean(current && current.serverUrl === snapshot.serverUrl && current.deviceId === snapshot.deviceId && current.token === snapshot.token && current.sharedSync === snapshot.sharedSync && (current.consentEpoch ?? 0) === (snapshot.consentEpoch ?? 0));
 }
 
 export function displayHost(url: string): string {

@@ -32,10 +32,14 @@
           <p id="list-meta" class="muted"></p>
         </div>
         <div class="row">
+          <button id="export-library" class="ghost" type="button">Export</button>
+          <button id="import-library" class="ghost" type="button">Import</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
           <button id="rename-list" class="ghost" type="button" hidden>Rename</button>
           <button id="delete-list" class="ghost danger" type="button" hidden>Delete</button>
         </div>
       </div>
+      <p id="library-status" role="status" aria-live="polite"></p>
       <div class="toolbar">
         <div class="segmented" id="filters">
           <button type="button" data-filter="unread" aria-pressed="true">Unread</button>

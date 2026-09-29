@@ -23,6 +23,8 @@
       <section class="panel" id="paired" hidden>
         <div><h1>Connected</h1><p id="paired-copy" class="muted"></p></div>
         <label class="switch-row"><input id="paired-auto-open" class="switch" type="checkbox"> Open received links automatically</label>
+        <label class="switch-row"><input id="shared-sync" class="switch" type="checkbox"> Sync reading library to this server</label>
+        <p class="hint">Optional and off by default. Article metadata is shared with this self-hosted server and other paired devices.</p>
         <div class="stat">
           <div><strong>Version check</strong><p id="versions-copy" class="hint">Not checked yet</p></div>
           <button id="check-versions" class="ghost" type="button">Check for updates</button>
@@ -36,6 +38,10 @@
           <button id="open-library" class="ghost" type="button">Open library</button>
         </div>
         <div class="progress"><span id="usage-bar" style="width: 0"></span></div>
+        <div class="stat">
+          <div><strong>Backup</strong><p class="hint">Export includes articles retained during a quota migration.</p></div>
+          <div class="row"><button id="export-library" class="ghost" type="button">Export JSON</button><button id="import-library" class="ghost" type="button">Import JSON</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+        </div>
         <div class="stat">
           <div><strong>Keyboard shortcut</strong><p id="shortcut" class="hint">Alt+Shift+S</p></div>
           <button id="shortcuts" class="ghost" type="button">Change</button>

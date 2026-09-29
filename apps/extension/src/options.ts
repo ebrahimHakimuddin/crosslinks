@@ -1,5 +1,5 @@
 import { apiFetch, SETTINGS_KEY, getSettings, normalizeServerUrl, originPermission } from "./shared.js";
-import { LEGACY_LIBRARY_KEY, getLibrary } from "./reading.js";
+import { exportLibrary, getLibrary, importLibrary } from "./reading.js";
 
 const form = document.querySelector<HTMLFormElement>("#pair-form")!;
 const serverInput = document.querySelector<HTMLInputElement>("#server-url")!;
@@ -10,6 +10,7 @@ const pairPanel = document.querySelector<HTMLElement>("#pair-panel")!;
 const pairedSection = document.querySelector<HTMLElement>("#paired")!;
 const pairedCopy = document.querySelector<HTMLElement>("#paired-copy")!;
 const pairedAutoOpen = document.querySelector<HTMLInputElement>("#paired-auto-open")!;
+const sharedSyncInput = document.querySelector<HTMLInputElement>("#shared-sync")!;
 const unpair = document.querySelector<HTMLButtonElement>("#unpair")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const versionsCopy = document.querySelector<HTMLElement>("#versions-copy")!;
@@ -27,6 +28,7 @@ async function render(): Promise<void> {
   if (settings) {
     pairedCopy.textContent = `${settings.deviceName} is connected to ${settings.serverUrl}.`;
     pairedAutoOpen.checked = settings.autoOpen;
+    sharedSyncInput.checked = Boolean(settings.sharedSync);
   } else {
     nameInput.value ||= `${navigator.platform || "Chrome"} browser`;
   }
@@ -61,7 +63,9 @@ form.addEventListener("submit", (event) => {
           deviceId: result.deviceId,
           deviceName: nameInput.value.trim(),
           autoOpen: autoOpenInput.checked,
-          paused: false
+          paused: false,
+          sharedSync: false,
+          consentEpoch: ((await chrome.storage.local.get("consentEpoch")).consentEpoch as number | undefined ?? 0) + 1
         }
       });
       setStatus("Browser paired successfully.");
@@ -83,11 +87,23 @@ pairedAutoOpen.addEventListener("change", () => {
   })();
 });
 
+sharedSyncInput.addEventListener("change", () => {
+  void (async () => {
+    const settings = await getSettings();
+    if (!settings) { sharedSyncInput.checked = false; setStatus("Pair this browser before enabling library sync.", true); return; }
+    if (sharedSyncInput.checked && !confirm("Share article metadata with this server and paired devices?")) { sharedSyncInput.checked = false; return; }
+    const response = await chrome.runtime.sendMessage({ type: "library-enable-sync", action: sharedSyncInput.checked ? "enable" : "disable" }) as { ok?: boolean; message?: string };
+    if (!response?.ok) throw new Error(response?.message ?? "Could not change library sync.");
+    setStatus(sharedSyncInput.checked ? "Server library sync enabled." : "Server library sync disabled.");
+  })().catch((error) => setStatus(error instanceof Error ? error.message : "Could not change library sync.", true));
+});
+
 unpair.addEventListener("click", () => {
   void (async () => {
     const settings = await getSettings();
-    // Keep a not-yet-migrated reading library; only drop pairing state.
-    await chrome.storage.local.remove(Object.keys(await chrome.storage.local.get(null)).filter((key) => key !== LEGACY_LIBRARY_KEY));
+    // Keep the Chrome library and retained legacy data; reset only scoped remote state.
+    const forgotten = await chrome.runtime.sendMessage({ type: "library-forget" }) as { ok?: boolean; message?: string };
+    if (!forgotten?.ok) throw new Error(forgotten?.message ?? "Could not forget this browser.");
     if (settings) await chrome.permissions.remove({ origins: [originPermission(settings.serverUrl)] });
     setStatus("Local credentials removed. Revoke this browser in the server admin page as well.");
     await render();
@@ -126,6 +142,18 @@ async function renderLibrary(): Promise<void> {
 
 document.querySelector("#open-library")!.addEventListener("click", () => void chrome.tabs.create({ url: "library.html" }));
 document.querySelector("#shortcuts")!.addEventListener("click", () => void chrome.tabs.create({ url: "chrome://extensions/shortcuts" }));
+document.querySelector<HTMLButtonElement>("#export-library")!.addEventListener("click", () => {
+  void exportLibrary().then((text) => {
+    const blob = new Blob([text], { type: "application/json" }); const url = URL.createObjectURL(blob); const link = document.createElement("a");
+    link.href = url; link.download = `crosslinks-library-${new Date().toISOString().slice(0, 10)}.json`; link.click(); URL.revokeObjectURL(url); setStatus("Library backup downloaded.");
+  }).catch((error) => setStatus(error instanceof Error ? error.message : "Could not export library.", true));
+});
+const importFile = document.querySelector<HTMLInputElement>("#import-file")!;
+document.querySelector<HTMLButtonElement>("#import-library")!.addEventListener("click", () => importFile.click());
+importFile.addEventListener("change", () => {
+  const file = importFile.files?.[0]; if (!file) return;
+  void file.text().then(importLibrary).then((report) => setStatus(report.failed || report.errors.length ? `Imported ${report.imported}; ${report.failed} failed. ${report.errors.join(" ")}` : `Imported ${report.imported} article${report.imported === 1 ? "" : "s"}; ${report.skipped} already existed.`)).catch((error) => setStatus(error instanceof Error ? error.message : "Could not import library.", true)).finally(() => { importFile.value = ""; });
+});
 chrome.storage.onChanged.addListener((_changes, area) => {
   if (area === "sync") void renderLibrary();
 });
