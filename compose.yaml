@@ -5,6 +5,7 @@ services:
     environment:
       LINKSYNC_PUBLIC_URL: ${LINKSYNC_PUBLIC_URL:?Set LINKSYNC_PUBLIC_URL to the public HTTPS origin}
       LINKSYNC_LAN_URL: ${LINKSYNC_LAN_URL:-}
+      LINKSYNC_TRUSTED_PROXY_CIDRS: ${LINKSYNC_TRUSTED_PROXY_CIDRS:-}
     ports:
       - "127.0.0.1:8787:8787"
     volumes:

@@ -39,6 +39,14 @@ Forward these request properties unchanged:
 - response streaming without buffering the WebSocket;
 - request bodies up to at least 32 KiB.
 
+If login rate limiting must distinguish users behind the proxy, set
+`LINKSYNC_TRUSTED_PROXY_CIDRS` to a comma-separated list of the proxy's exact
+addresses or CIDRs (for example `127.0.0.1,10.0.0.0/8`). The application trusts
+`X-Forwarded-For` only when the direct peer matches this allowlist, and walks the
+header from right to left to select the first untrusted address. It does not
+enable blanket proxy trust by default; never include a client network in this
+allowlist.
+
 The app sets strict browser security headers itself. The proxy should add HSTS only
 after the hostname and certificate are stable. Do not expose port 8787 directly to
 the internet.
@@ -47,7 +55,12 @@ the internet.
 
 The SQLite database contains password/device-token hashes, full submitted URLs,
 device names, delivery state, and timestamps. Treat backups as sensitive. Default
-undelivered expiry is seven days; completed history is retained for 30 days.
+undelivered expiry is seven days; completed history is retained for 30 days, while
+minimal delivery receipts retain IDs for 37 days to make retries idempotent.
+Cleanup runs at startup and periodically, including expired sessions and pairing
+grants. History cleanup strips receipt URLs and failure details before removing
+terminal rows. Shared article sync is opt-in and metadata-only; device removal
+preserves delivery history while revoking the credential and closing live sockets.
 
 Revoking a device invalidates its credential and closes active delivery sockets.
 If the owner password is lost, there is intentionally no remote reset endpoint;
