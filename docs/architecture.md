@@ -2,7 +2,8 @@
 
 ## V1 contract
 
-- Android sends one `http` or `https` URL to one selected Chrome device.
+- Android saves one `http` or `https` URL from Share or Open with and sends it to
+  one selected Chrome device.
 - Android appears in both the share sheet and the ordinary “Open with” chooser.
 - Chrome opens an idempotent delivery once and acknowledges it afterward.
 - Delivery is near-real-time over a live channel, with polling as recovery.
@@ -14,6 +15,14 @@
   manual code fallback.
 - Clients try the configured LAN HTTPS endpoint before the public HTTPS endpoint.
   Plain HTTP is supported only for loopback development; production clients reject it.
+- The Chrome reading library uses a durable local profile cache as its canonical
+  store and mirrors saved metadata, snippets, reading positions, and lists to
+  Chrome profile sync when enabled and quota permits. Profile deletion removes
+  the article and its profile-sync entry; shared Android/Chrome deletion uses a
+  server-side tombstone so the deletion can propagate to paired clients. Shared
+  Android/Chrome article sync is disabled until the user enables it in both
+  clients; mirror failures retry without making local browse, export, or delete
+  operations unavailable. It never fetches page content or URL metadata.
 
 ## Trust boundaries
 
@@ -26,6 +35,8 @@ Device bearer tokens and one-time pairing codes are stored as SHA-256 hashes.
 The owner password is stored with Argon2id. Admin sessions use an HttpOnly,
 SameSite=Strict cookie. Pairing, device revocation, and history access require an
 authenticated owner session.
+Each device can be revoked independently. Android keeps its pending shares in
+phone-local storage for offline use, including before the phone is paired.
 
 ## Jev boundary
 

@@ -7,6 +7,8 @@
 - Exercise Android → server → Chrome against the production HTTPS endpoints.
 - Verify LAN-first fallback both on and away from the local network.
 - Test revoked credentials, expired pairing codes, offline queues, and duplicate delivery recovery.
+- Explain that optional shared library sync sends only article metadata and exact
+  reading positions; the server never downloads page content or URL metadata.
 
 ## Chrome Web Store
 

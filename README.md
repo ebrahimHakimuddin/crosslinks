@@ -48,19 +48,41 @@ Open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and
 select `apps/extension/dist`. Create a Chrome pairing code in the server console,
 then enter the server URL and code in the extension settings.
 
-The extension also keeps a reading library: **Save position** in the popup, the
-right-click menu (select text first to pin that exact passage), or `Alt+Shift+S`
-stores the page with the passage you were reading. Articles are organized into
-lists and can be marked as read. Opening one scrolls back to that passage using
-Chrome text fragments. The library works without pairing and syncs through the
-Chrome profile (`chrome.storage.sync`, about 250 articles), not the CrossLinks server.
+The Chrome extension keeps the canonical reading library in local profile
+storage, and mirrors saved metadata to `chrome.storage.sync` when Chrome profile
+sync is enabled and quota permits. Failed mirrors retry automatically while the
+local library remains available for browsing, export, and deletion. **Save
+position** in the popup, the right-click menu (select text first to pin that
+exact passage), or `Alt+Shift+S` stores the page and its current position.
+Articles can be organized into lists, edited, and marked as read; opening one
+uses a Chrome text fragment to return to the saved passage.
+
+Android can save a link from the system Share sheet or Open with chooser, and
+the app lets you choose a paired Chrome installation. Server-accepted links
+remain queued for the selected Chrome device while that device is offline.
+Interrupted or offline phone submissions retain their operation identity and can
+be retried from history. The Android app does not download article content. Its
+separate **Open saved links** library remains available offline and before
+pairing, and lets you save, edit, search, organize into lists, mark links read
+or unread, and save a reading position before opening the link in an external
+browser. The library stores link metadata only. Shared library sync is off by
+default: enable it
+explicitly in both Chrome and Android before paired devices exchange editable
+metadata, snippets, reading positions, and deletion tombstones through the
+server. The server stores no HTML and never fetches submitted URLs.
 
 ## Build Android
 
+Run the Android verification tasks separately:
+
 ```sh
 cd apps/android
-./gradlew testDebugUnitTest assembleDebug lintDebug
+./gradlew testDebugUnitTest
+./gradlew lintDebug
 ```
+
+An installable APK build is an optional future release step and is not part of
+the current verification task.
 
 Install `app/build/outputs/apk/debug/app-debug.apk`, create an Android pairing QR
 in the server console, and scan it from the app. The app can then be selected from

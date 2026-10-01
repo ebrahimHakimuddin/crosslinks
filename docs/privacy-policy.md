@@ -14,12 +14,17 @@ credential encrypted with Android Keystore. Chrome stores its credential in loca
 extension storage.
 
 When the user saves a page to the Chrome reading library, the extension reads the
-current page's URL, title, scroll percentage, and a short passage of visible text
-(up to eight words) to restore the reading position later. This runs only on the
-tab the user explicitly saves. The library is stored in Chrome sync storage, so Chrome
-syncs it through the user's Google account to their other signed-in browsers under
-Google's privacy terms; it is never sent to the CrossLinks server. Page favicons in
-the library are read from Chrome's local favicon cache.
+current page's URL, title, scroll percentage, and an editable snippet of visible
+text to restore the reading position later. This runs only on the tab the user
+explicitly saves. The canonical library is kept in the Chrome profile's local
+extension storage. Saved metadata may be mirrored to `chrome.storage.sync` when
+Chrome profile sync is enabled and quota permits; mirror failures retry
+automatically while local browsing, export, and deletion remain available.
+Android's pending shares and local state stay in the phone's app storage. If the user explicitly enables shared sync in both
+Chrome and Android, the editable metadata, snippets, reading positions, and
+tombstones are sent to the CrossLinks server so paired devices can share the
+library. CrossLinks never fetches the page or URL metadata, and deletion
+tombstones contain no URL or title.
 
 The Android app uses Google Play services Code Scanner to scan a CrossLinks pairing
 QR code without requesting camera permission. Google Play services supplies the
@@ -29,7 +34,11 @@ documentation for the behavior of Google Play services on the user's device.
 All application traffic must use HTTPS. A self-hosted CrossLinks operator controls
 the server, its logs, backups, retention setting, and network infrastructure. Users
 may delete individual history entries or completed history through the owner console,
-and may revoke any paired device.
+and may revoke any paired device. Receipt records retain minimal delivery IDs by
+default for 37 days to support idempotent retries; full URL and history metadata
+are retained for 30 days by default. Clearing history strips URL and failure
+details while preserving terminal deduplication state. Removing a device revokes
+its credential while retaining delivery history.
 
 Operator: **[name]**  
 Contact: **[email or support URL]**  
